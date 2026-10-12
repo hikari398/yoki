@@ -1,0 +1,97 @@
+// グループの画面（/g/:id/ とタブ、管理の区域 /g/:id/admin/）の外枠。上の帯・タブ・本文（道の中身）・窓・吹き出しを置く。
+// データの読み書きはConsoleSync（api/sync.ts）。データが届くまでは読み込み中の骨組みを出す
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Outlet, useNavigate, useParams, useRouterState } from '@tanstack/react-router';
+import { useEffect, useMemo, useState } from 'react';
+import type { ConsoleData } from '../../../../shared/api';
+import { lastTabKey, load, store } from '../../../app/storage';
+import { watchSystemTheme } from '../../../app/theme';
+import { mainArea } from '../../../ui/chrome';
+import { ConfirmDialog } from '../../../ui/confirm';
+import { ModalManager } from '../../../ui/Modal';
+import { createStore, useStore } from '../../../ui/store';
+import { TipLayer } from '../../../ui/TipLayer';
+import { Toast, toast } from '../../../ui/toast';
+import { rpc } from '../api/rpc';
+import { ConsoleSync, domBlocked } from '../api/sync';
+import { type ConsoleCtx, ConsoleContext, type ConsoleUi } from '../context';
+import { parseYmd } from '../model/dates';
+import { seriesNames } from '../model/model';
+import { FormModal } from '../form/FormModal';
+import { PrepModal } from '../prep/PrepModal';
+import { RecordModal } from '../records/RecordModal';
+import { PollModal } from '../recruit/PollModal';
+import { Header } from './Header';
+import { Loading } from './Loading';
+import { guideClosedKey, type MainTab, TAB_TO, tabOf } from './nav';
+
+/** 確かめとスクリーンショットのスクリプトが使う（Reactの中の値は、外から見えないため） */
+type YokiHook = { readonly D: ConsoleData | undefined; selectDay: (k: string) => void; showTab: (t: string) => void };
+
+/** グループの画面の外枠。上の帯でグループを切り替えたら、読み込み（ConsoleSync）と画面の状態ごと作り直す */
+export function ConsoleLayout() {
+  const { groupId } = useParams({ from: '/g/$groupId' });
+  return <ConsoleShell key={groupId} />;
+}
+
+function ConsoleShell() {
+  const { groupId } = useParams({ from: '/g/$groupId' });
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [sync] = useState(() => new ConsoleSync(qc, groupId, {
+    rpc, toast, blocked: domBlocked,
+    goLogin: () => { location.href = '/auth/login?return_to=' + encodeURIComponent(location.pathname); },
+  }));
+  const [ui] = useState(() => createStore<ConsoleUi>({
+    selDay: '', view: { y: 0, m: 0 }, guide: load(guideClosedKey(groupId)) === '1' ? 'closed' : '', guideFocus: 0, focus: '', target: load('target') || '全員', form: null, poll: null, prep: null, record: null,
+  }));
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const tab = tabOf(pathname), area = tab === 'admin' ? 'admin' : 'main';
+  const ctx = useMemo<ConsoleCtx>(() => ({ groupId, area, sync, ui }), [groupId, area, sync, ui]);
+  const view = useStore(sync.view);
+  const d = useQuery({ queryKey: sync.key, queryFn: () => sync.data() as ConsoleData, enabled: false }).data;
+
+  useEffect(() => sync.start(), [sync]);
+  useEffect(() => watchSystemTheme(), []);
+  // 区域とタブをbodyに置く（見た目の出し分けに使う）。ふだんの3画面のタブは、次にこのグループを開いたときのために控える
+  // （設定は控えない。グループのURLを開いて設定が出るのは不自然なため）
+  useEffect(() => {
+    document.body.setAttribute('data-area', area);
+    document.body.setAttribute('data-tab', tab);
+    if (area === 'main' && tab !== 'settings') store(lastTabKey(groupId), tab);
+  }, [area, tab, groupId]);
+  useEffect(() => () => { document.body.removeAttribute('data-area'); document.body.removeAttribute('data-tab'); }, []);
+  useEffect(() => { if (d) document.title = d.title + ' - Yoki'; }, [d]);
+  useEffect(() => {
+    const hook: YokiHook = {
+      get D() { return sync.data(); },
+      selectDay(k) { const p = parseYmd(k); ui.set((s) => ({ ...s, selDay: k, view: { y: p.getFullYear(), m: p.getMonth() } })); },
+      showTab(t) { if (t in TAB_TO) void navigate({ to: TAB_TO[t as MainTab], params: { groupId } }); },
+    };
+    (window as unknown as { yoki: YokiHook }).yoki = hook;
+  }, [sync, ui, navigate, groupId]);
+
+  return (
+    <ConsoleContext.Provider value={ctx}>
+      <Header tab={tab} />
+      <main className={mainArea(tab === 'cal' ? 'cal' : 'tabs')}>{view.phase === 'ready' && d ? <Outlet /> : <Loading view={view} sync={sync} />}</main>
+      {d && (
+        <>
+          {/* 入力の候補（GMの名前・シリーズの名前）。候補は値だけで、名前は持たない */}
+          {/* oxlint-disable-next-line jsx-a11y/control-has-associated-label */}
+          <datalist id="memberList">{d.members.map((m) => <option key={m.name} value={m.name} />)}</datalist>
+          {/* oxlint-disable-next-line jsx-a11y/control-has-associated-label */}
+          <datalist id="seriesList">{seriesNames(d).map((n) => <option key={n} value={n} />)}</datalist>
+          <FormModal />
+          <PollModal />
+          <PrepModal />
+          <RecordModal />
+        </>
+      )}
+      <ConfirmDialog />
+      <TipLayer />
+      <ModalManager />
+      <Toast />
+    </ConsoleContext.Provider>
+  );
+}

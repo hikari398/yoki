@@ -1,0 +1,33 @@
+// YokiのWorkerの設定。npm run devとnpm run build（Vite）がこれを読む。
+// 公開するCloudflareごとに違う値は、ここに書かない。
+//   D1のID: 「Deploy to Cloudflare」のボタンで設置すると、Cloudflareが作ったD1のIDを、設置した人のリポジトリのこのファイルに書き込む。
+//           GitHub Actions（.github/workflows/deploy.yml）で公開するときは、組み立てた設定にYOKI_D1_DATABASE_IDから入れる（vite.config.ts）
+//   DiscordアプリのIDや公開のアドレスなど: Workerのsecretに置く（src/worker/env.ts。ボタンでは .dev.vars.exampleの名前を聞かれる）。
+//           varsに置くと、公開のたびに設定の値（空）で上書きされるため
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "yoki",
+  "main": "./src/worker/index.ts",
+  "compatibility_date": "2026-08-15",
+  "assets": {
+    // 画面（src/clientをViteで組み立てたもの）。次の道はWorkerが先に受ける（ログインの確認やデータのため）。
+    // /（入口）は、リンクを貼ったときの見た目（OGP）に公開のアドレスを入れて返す（routes/pages.ts）。
+    // /admin（運営者の管理画面）も、運営者かを確かめてから返すので、ここに入れる（入れないと、確かめずに配ってしまう）。
+    // /terms・/privacy（利用規約・プライバシーポリシー）は、運営者が直した本文をD1から読んで返す
+    "binding": "ASSETS",
+    "run_worker_first": ["/", "/api/*", "/auth/*", "/g/*", "/dev/*", "/admin", "/admin/*", "/terms", "/privacy", "/cal/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "yoki",
+      // database_id: 元のリポジトリには書かない。設置するときに入る（上のとおり）。手元のD1は無くても動く
+      "migrations_dir": "./migrations","database_id": "43b015f8-9343-407d-bd00-1e72475e6ec3"
+    }
+  ],
+  "triggers": {
+    // 知らせの見回り（5分おき。時刻はUTCだが、中で日本時間に直して判断する）
+    "crons": ["*/5 * * * *"]
+  },
+  "observability": { "enabled": true }
+}

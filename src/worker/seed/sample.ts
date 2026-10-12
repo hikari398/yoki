@@ -1,0 +1,120 @@
+// サンプルデータ（GAS版のデモと同じ顔ぶれ）。開発用ログインとテストが使う。
+// 画面と同じ関数を、メンバーとして呼んで作る。日付は今日から数えるので、いつ作っても今の月の画面になる
+import type { Actor } from '../auth/guard';
+import { DEV_USERS } from '../auth/dev-users';
+import { SAMPLE_CHANNEL } from '../discord/send';
+import { setAvailability, setAvailabilityBulk, setAvailNote, setDayNote } from '../domain/availability';
+import { loadGroup } from '../domain/load';
+import { setPollVote, startPoll } from '../domain/polls';
+import { assignSlots, savePrep, saveSlotSecret, setSlotHope, submitSheet } from '../domain/prep';
+import { saveRecord, setPcRecord } from '../domain/records';
+import { saveScenario, setScenarioMark } from '../domain/scenarios';
+import { saveSession, setInterest } from '../domain/sessions';
+import { addDays, fmtDateTime, jst } from '../lib/jst';
+
+const NOTES: Record<string, string> = { ひより: 'GMが多め', こまち: '平日は21時から', ミナト: 'TRPGは始めたばかり' };
+
+// 回答の呼び出しに渡すioのdataとsleepは、型を満たすためだけ。サンプルのチャンネルには送ったことにするので、待つことも画面のデータを返すことも無い
+/* istanbul ignore next -- @preserve サンプルづくりでは呼ばれない */
+async function noData(): Promise<unknown> { return {}; }
+/* istanbul ignore next -- @preserve サンプルづくりでは呼ばれない */
+async function noSleep(): Promise<void> {}
+
+export async function seedSample(db: D1Database, groupId: string, appUrl: string, now = new Date()): Promise<void> {
+  const at = now.toISOString();
+  await db.batch([
+    // ひよりはグループを作った人（管理者の名簿に載る）
+    ...DEV_USERS.map((u) =>
+      db.prepare('INSERT INTO members (group_id, name, discord_id, note, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (group_id, name) DO NOTHING')
+        .bind(groupId, u.name, u.id, NOTES[u.name] ?? '', u.manager ? 1 : 0, at),
+    ),
+    db.prepare('UPDATE groups SET channel_id = ?2, remind_enabled = 1, remind_set_by = ?3 WHERE id = ?1').bind(groupId, SAMPLE_CHANNEL, 'ひより / ' + fmtDateTime(now)),
+  ]);
+  const ids = new Map(
+    (await db.prepare('SELECT id, name FROM members WHERE group_id = ?').bind(groupId).all<{ id: number; name: string }>()).results.map((m) => [m.name, m.id]),
+  );
+  /** その人として読み込む（サンプルづくりではほかの人のぶんも入れるので、管理者として扱う） */
+  const as = (name: string) => {
+    const actor: Actor = { memberId: ids.get(name)!, name, isAdmin: true, userId: '' };
+    return loadGroup(db, groupId, actor, appUrl, now);
+  };
+  const io = { reload: () => as('ひより'), data: noData, sleep: noSleep };
+  const today = jst(now).ymd;
+  const T = (n: number) => addDays(today, n);
+  const p = jst(now);
+  const nmY = p.month === 12 ? p.year + 1 : p.year, nmM = (p.month % 12) + 1;
+  const nextFrom = nmY + '-' + String(nmM).padStart(2, '0') + '-01';
+  const nextMid = nextFrom.slice(0, 8) + '15';
+  const nextTo = addDays(nmM === 12 ? nmY + 1 + '-01-01' : nmY + '-' + String(nmM + 1).padStart(2, '0') + '-01', -1);
+  const S = async (o: Record<string, unknown>, by = 'ひより') =>
+    (await saveSession(await as(by), { extra: '', members: [], start: '', end: '', place: '', memo: '', series: '', ...o }, io)) as { id: string };
+  /** シナリオを登録して、そのIDを返す */
+  const SC = async (by: string, o: Record<string, unknown>) => (await saveScenario(await as(by), o)).id;
+  const mark = async (id: string, name: string, kind: string) => { await setScenarioMark(await as(name), { id, name, kind }); };
+
+  // シナリオ（卓に付けるものと、まだ遊んでいないもの）
+  const scBring = await SC('ソラ', { name: '連れて帰る', system: 'クトゥルフ神話TRPG', playersMin: 2, playersMax: 3, hours: '4時間', memo: '現代日本が舞台。初めての人にもおすすめ' });
+  const scLibrary = await SC('レン', { name: '灰色の図書館', system: 'クトゥルフ神話TRPG', playersMin: 3, playersMax: 4, hours: '5時間', url: 'https://example.com/library' });
+  const scCastle = await SC('こまち', { name: '雪原の古城', system: 'ソード・ワールド2.5', playersMin: 3, playersMax: 4, hours: '6時間', memo: 'キャラクターは2レベルで作る' });
+  const scPort = await SC('ミナト', { name: '星降る港の依頼', system: 'ソード・ワールド2.5', playersMin: 2, playersMax: 3, hours: '3時間' });
+  const scPromise = await SC('ひより', { name: 'あの日の約束', system: 'エモクロアTRPG', playersMin: 1, playersMax: 2, hours: '3時間', memo: 'タイマンでも遊べる' });
+  await mark(scPromise, 'ひより', 'gm');
+  await mark(scPromise, 'ソラ', 'played');
+  await mark(scLibrary, 'ミナト', 'played');
+  await mark(scCastle, 'ユズ', 'played');
+
+  // キャンペーン（シリーズ）。第1回は終わっていて、記録とPCがある
+  const first = await S({ name: '鉄鳴界の夜明け #1', series: '鉄鳴界の夜明け', gm: 'ひより', members: ['ソラ', 'こまち', 'レン'], date: T(-6), start: '20:00', end: '23:00', status: '開催', place: 'ユドナリウムアックス', memo: 'キャンペーン第1回。キャラクター作成から' });
+  await saveRecord(await as('ひより'), { id: first.id, logUrl: 'https://example.com/log/tetsunari-1', recap: '鉄道の町に着いたところまで。次回は廃坑から' });
+  for (const [name, pc, outcome] of [['ソラ', 'カイ・ハーツ', '継続'], ['こまち', 'ミレイユ', '継続'], ['レン', '灰島 透', '継続']] as const) {
+    await setPcRecord(await as(name), { id: first.id, name, pc, outcome });
+  }
+  await S({ name: '鉄鳴界の夜明け #2', series: '鉄鳴界の夜明け', seriesEnd: T(40), gm: 'ひより', members: ['ソラ', 'こまち', 'レン'], dates: [T(2), T(9), T(16)], date: T(2), start: '20:00', end: '23:00', status: '開催', place: 'ユドナリウムアックス', memo: '前回の続きから' });
+  // 単発
+  await S({ name: '今夜の短編', gm: 'ユズ', members: ['ひより', 'ミナト'], date: T(0), start: '21:00', end: '23:00', status: '開催', place: 'Discordボイス', memo: '2時間で終わる短いシナリオ' });
+  const port = await S({ name: '星降る港の依頼', gm: 'ミナト', members: ['ソラ', 'レン'], date: T(1), start: '20:30', end: '23:00', status: '開催', place: 'Discordボイス', memo: 'ミナトさんの初GM', scenarioId: scPort });
+  await S({ name: '連れて帰る', gm: 'ソラ', members: ['ひより', 'ミナト', 'ユズ'], date: T(5), start: '14:00', end: '18:00', status: '開催', place: 'ユドナリウムアックス', memo: '初めての人も歓迎', scenarioId: scBring });
+  const library = await S({ name: '灰色の図書館', gm: 'レン', coGms: ['ミナト'], members: ['こまち', 'ユズ', 'ひより'], date: T(12), start: '21:00', end: '23:30', status: '開催', place: 'Discordボイス', memo: '', scenarioId: scLibrary });
+  // 卓の準備（HO・秘匿HO・希望・キャラシ）。HO2の秘匿HOは、割り当てたひよりとGMのレンだけが読める
+  await savePrep(await as('レン'), { id: library.id, sheetDue: T(9), slots: [
+    { pos: 1, label: 'HO1 司書', summary: '図書館で働いている。最近、閉館後に物音がする' },
+    { pos: 2, label: 'HO2 学生', summary: '卒業論文の資料を探しに来た大学生' },
+    { pos: 3, label: 'HO3 記者', summary: '図書館の噂を記事にしたい' },
+  ] });
+  await saveSlotSecret(await as('レン'), { id: library.id, pos: 1, secret: 'あなたは地下の閉架書庫の鍵を持っている。だれにも話していない' });
+  await saveSlotSecret(await as('レン'), { id: library.id, pos: 2, secret: 'あなたの探している本は、亡くなった祖父が書いたものだ' });
+  await setSlotHope(await as('ユズ'), { id: library.id, name: 'ユズ', hopes: [3, 1] });
+  await assignSlots(await as('レン'), { id: library.id, assign: { 1: 'こまち', 2: 'ひより' } });
+  await submitSheet(await as('こまち'), { id: library.id, name: 'こまち', url: 'https://example.com/sheet/komachi', pc: '水瀬 栞' });
+  // 募集
+  // 定員に達していて、キャンセル待ちが1人並んでいる
+  const castle = await S({ name: '雪原の古城', gm: 'こまち', status: '募集', windowFrom: nextFrom, windowTo: nextMid, memo: '3人まで。ボイスあり', scenarioId: scCastle, capacity: 3, recruitDue: T(20) });
+  for (const name of ['ソラ', 'ミナト', 'ユズ', 'レン']) await setInterest(await as(name), { id: castle.id, name, level: 'want' }, io);
+  const camp = await S({ name: '新キャンペーン顔合わせ', gm: 'ひより', status: '募集', windowFrom: nextMid, windowTo: nextTo, memo: '長いキャンペーンの相談会。見学だけでも' });
+  await setInterest(await as('ミナト'), { id: camp.id, name: 'ミナト', level: 'want' }, io);
+  await setInterest(await as('こまち'), { id: camp.id, name: 'こまち', level: 'interest' }, io);
+  await setInterest(await as('ユズ'), { id: camp.id, name: 'ユズ', level: 'watch' }, io);
+  // 日程調整
+  const maze = await S({ name: '迷宮の底へ', gm: 'レン', members: ['ひより', 'ソラ', 'こまち'], status: '調整中', windowFrom: T(18), windowTo: T(32), memo: '候補の期間のどこかで1回' }, 'レン');
+  await startPoll(await as('レン'), { id: maze.id, dates: [T(19), T(21), T(24), T(26)], start: '20:00', end: '23:00', due: T(14) });
+  for (const [name, n, vote] of [['ひより', 19, '◯'], ['ひより', 21, '×'], ['ひより', 24, '◯'], ['ソラ', 19, '×'], ['ソラ', 21, '△'], ['ソラ', 24, '◯'], ['ソラ', 26, '◯']] as const) {
+    await setPollVote(await as(name), { id: maze.id, ymd: T(n), name, vote }, io);
+  }
+  // メンバーの予定（都合の悪い日だけ）
+  for (const [name, wds, mark] of [['ソラ', [2], '×'], ['こまち', [3], '△'], ['レン', [4], '×'], ['ミナト', [0], '△']] as const) {
+    await setAvailabilityBulk(await as(name), { name, from: T(0), to: T(59), weekdays: wds, mark, keep: true });
+  }
+  await setAvailability(await as('ひより'), { name: 'ひより', ymd: T(7), mark: '×' });
+  await setAvailability(await as('ユズ'), { name: 'ユズ', ymd: T(10), mark: '△' });
+  await setAvailNote(await as('ソラ'), { name: 'ソラ', ymd: T(8), text: '21時からなら参加できます' });
+  await setDayNote(await as('ソラ'), { ymd: T(5), text: 'ユドナリウムの部屋は前日に作ります' });
+  // 何日か続く予定（期間の日付メモと、まとめて入れた予定のメモ）
+  await setDayNote(await as('こまち'), { ymd: T(13), to: T(15), text: 'ユズは合宿で不在' });
+  await setAvailabilityBulk(await as('ユズ'), { name: 'ユズ', from: T(13), to: T(15), mark: '×', note: '合宿', keep: true });
+  // Discordに送った跡（送ったことにするだけ）。案内は今日が開催前の知らせの日なので、開催前の知らせ済みにもなる
+  await db.batch([
+    db.prepare("INSERT INTO notify_log (group_id, at, kind, target, result) VALUES (?1, ?2, '案内', '星降る港の依頼', 'OK (200)'), (?1, ?2, '参加確認', '雪原の古城（募集のチャンネル）', 'OK (200)')").bind(groupId, at),
+    db.prepare('UPDATE sessions SET notified_at = ?3 WHERE group_id = ?1 AND seq = ?2').bind(groupId, Number(port.id.slice(1)), at),
+    db.prepare('UPDATE sessions SET asked_at = ?3 WHERE group_id = ?1 AND seq = ?2').bind(groupId, Number(castle.id.slice(1)), at),
+  ]);
+}

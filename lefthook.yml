@@ -1,0 +1,48 @@
+# Gitのフック（lefthook）。npm installのときに入る。入っていなければnpx lefthook install
+# 一度だけ止めたいときはLEFTHOOK=0 git commit …
+# 書き方: https://lefthook.dev/configuration/
+
+# コミットの前: 型の確認・lint・テスト。関係するファイル（依存を変えたときのpackage-lock.jsonも）をコミットするときだけ回す
+pre-commit:
+  parallel: true
+  jobs:
+    - name: 型の確認
+      glob:
+        - "*.ts"
+        - "**/*.ts"
+        - "**/*.tsx"
+        - "**/*.vue"
+        - "**/tsconfig*.json"
+        - "package-lock.json"
+      run: npm run typecheck
+
+    - name: lint
+      glob:
+        - "*.{ts,tsx,js}"
+        - "**/*.{ts,tsx,js}"
+        - ".oxlintrc.json"
+      run: npm run lint
+
+    - name: 日本語の検査
+      glob:
+        - "*.md"
+        - "**/*.md"
+      run: node tools/lint-ja.mjs {staged_files}
+
+    - name: テスト
+      glob:
+        - "src/**"
+        - "test/**"
+        - "migrations/**"
+        - "website/**"
+        - "*.config.ts"
+        - "wrangler.jsonc"
+        - "package-lock.json"
+      run: npm test
+
+# コミットの説明: Conventional Commitsの形か（commitlint。決まりはcommitlint.config.jsとCLAUDE.mdの「コミット」）。
+# Gitが作る説明（Merge・Revert・fixup! など）はcommitlintがそのまま通す
+commit-msg:
+  jobs:
+    - name: commitlint
+      run: npx --no -- commitlint --edit "{1}"

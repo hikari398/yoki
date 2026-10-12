@@ -1,0 +1,97 @@
+{
+  "name": "yoki",
+  "version": "1.6.1",
+  "private": true,
+  "license": "MIT",
+  "description": "Yoki（TRPGの卓の予定を管理する。Cloudflare Workers + D1 + Discordログイン）",
+  "type": "module",
+  "engines": {
+    "node": "^22.12.0 || >=24.0.0"
+  },
+  "scripts": {
+    "predev": "wrangler d1 migrations apply DB --local",
+    "dev": "vite",
+    "build": "vite build",
+    "deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc -p tsconfig.json && tsc -p src/client/tsconfig.json && tsc -p tsconfig.node.json && tsc -p website/tsconfig.json",
+    "lint": "oxlint --deny-warnings && npm run lint:ja",
+    "lint:ja": "node tools/lint-ja.mjs",
+    "e2e": "node test/e2e/smoke.js",
+    "types": "wrangler types --strict-vars=false",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "site": "vitepress dev website",
+    "site:build": "vitepress build website",
+    "site:preview": "vitepress preview website",
+    "screenshots": "node website/tools/screenshots.js",
+    "compare-shots": "node website/tools/compare-shots.js",
+    "og-image": "node website/tools/og-image.js",
+    "icons": "node website/tools/icons.js",
+    "notices": "node tools/third-party.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.62.5",
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "^5.20261003.1",
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
+    "@iconify-json/material-symbols": "^1.2.94",
+    "@semantic-release/npm": "file:tools/shims/semantic-release-npm",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "@vitest/coverage-istanbul": "^4.1.11",
+    "conventional-changelog-conventionalcommits": "^9.3.1",
+    "lefthook": "^2.1.16",
+    "micromatch": "file:tools/shims/micromatch",
+    "oxlint": "^1.86.0",
+    "pixelmatch": "^7.2.0",
+    "playwright": "^1.63.0",
+    "pngjs": "^7.0.0",
+    "semantic-release": "^25.0.9",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "unplugin-icons": "^24.0.0",
+    "vite": "^8.3.2",
+    "vitepress": "^2.0.0-alpha.20",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.147.0"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.104.1",
+    "@tanstack/react-router": "^1.170.41",
+    "hono": "^4.13.12",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "allowScripts": {
+    "workerd": true,
+    "esbuild": true,
+    "lefthook": true
+  },
+  "overrides": {
+    "@cloudflare/vitest-pool-workers": {
+      "wrangler": "$wrangler",
+      "miniflare": "5.20261001.0-alpha"
+    },
+    "semantic-release": {
+      "micromatch": "$micromatch",
+      "@semantic-release/npm": "$@semantic-release/npm"
+    },
+    "sharp": "0.35.5"
+  },
+  "cloudflare": {
+    "bindings": {
+      "DB": { "description": "Yokiのデータ（グループ・卓・予定）を置くD1のデータベース。新しく作ってください。" },
+      "DISCORD_CLIENT_ID": { "description": "DiscordアプリのClient ID（Discord Developer PortalのOAuth2）。" },
+      "DISCORD_CLIENT_SECRET": { "description": "DiscordアプリのClient Secret（Discord Developer PortalのOAuth2）。" },
+      "DISCORD_BOT_TOKEN": { "description": "DiscordアプリのBotのトークン（Discord Developer PortalのBotの「Reset Token」）。知らせを送るのに使います。" },
+      "OPERATOR_IDS": { "description": "運営者（あなた）のDiscordユーザーID。何人いても、カンマで区切って並べます。運営の管理画面を開けるのは、この人だけです。" }
+    }
+  }
+}

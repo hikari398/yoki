@@ -1,0 +1,26 @@
+// 窓を開く頼み（卓の登録の窓と変更の窓・候補日を選ぶ窓）。窓の部品は外枠に置き、頼みは画面の状態（ui）に入れる。
+// 頼みには、閉じても戻らない通し番号を付ける（窓は、番号が変わったら入力を作り直す。同じ頼みでも開き直す）
+import type { Store } from '../../ui/store';
+import type { ConsoleUi, FormReq } from './context';
+
+let seq = 0;
+
+/** 卓の登録の窓を開く（req.idがあれば、その卓の変更の窓） */
+export function openForm(ui: Store<ConsoleUi>, req: FormReq = {}): void {
+  ui.set((s) => ({ ...s, form: { seq: ++seq, req } }));
+}
+
+/** 卓の準備の窓を開く（HO・秘匿HO・キャラシ） */
+export function openPrep(ui: Store<ConsoleUi>, id: string): void {
+  ui.set((s) => ({ ...s, prep: { seq: ++seq, id } }));
+}
+
+/** 卓の記録の窓を開く（ログ・振り返り・自分のPC） */
+export function openRecord(ui: Store<ConsoleUi>, id: string): void {
+  ui.set((s) => ({ ...s, record: { seq: ++seq, id } }));
+}
+
+/** 候補日を選ぶ窓を開く（日程調整を始める・候補日を選び直す） */
+export function openPoll(ui: Store<ConsoleUi>, id: string): void {
+  ui.set((s) => ({ ...s, poll: { seq: ++seq, id } }));
+}

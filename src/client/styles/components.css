@@ -1,0 +1,99 @@
+/* 部品（componentsの層）。いくつもの画面で使う形。場面ごとの調整は、Tailwindのクラスで足す（クラスは部品に勝つ） */
+
+/* アイコン（SVG。<Icon name>）。大きさは文字の大きさ（1em）、色は文字の色。飾りなので読み上げない（aria-hidden） */
+.ic { display: inline-block; width: 1em; height: 1em; font-size: 20px; flex-shrink: 0; vertical-align: -5px; user-select: none; }
+.ic.sm { font-size: 18px; vertical-align: -4px; }
+.ic.xs { font-size: 14px; vertical-align: -2px; }
+
+/* 小さな説明 */
+.hint { color: var(--muted); font-size: 12px; text-wrap: pretty; }
+p.hint { max-width: 62em; margin: 8px 0 12px; }
+
+/* カード */
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 16px 18px; margin-bottom: 16px; box-shadow: var(--elev-sm); }
+.card > :first-child, .card > label:first-child { margin-top: 0; }
+.card > :last-child { margin-bottom: 0; }
+/* カードの見出し。アイコンと字のあいだを空け、横の小さな説明は細い字で、入らなければ下の行へ */
+.card > h3 { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; row-gap: 2px; }
+.card > h3 > .ic { color: var(--accent-text); }
+.card > h3 small { font-weight: 400; }
+@media (width < 601px) { .card { padding: 14px; } }
+
+/* ボタン。primary（黒）・danger（赤い字）・danger-fill（赤）・small・xl・on（押してある）・icon（アイコンだけ） */
+.btn {
+  font: inherit; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: var(--h-control); padding: 0 14px; border-radius: var(--radius-pill); border: 1px solid var(--line-strong);
+  background: var(--card); color: var(--text); cursor: pointer; white-space: nowrap; text-decoration: none;
+  transition: background-color var(--dur-fast) ease-out, border-color var(--dur-fast) ease-out, transform var(--dur-fast) ease-out;
+}
+.btn .ic { vertical-align: 0; }
+.btn:hover:not(:disabled) { background: var(--hover); }
+.btn:active:not(:disabled) { transform: scale(.97); }
+.btn.icon { width: var(--h-control); padding: 0; }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+.btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 84%, var(--bg)); }
+.btn.danger { color: var(--err-text); border-color: color-mix(in srgb, var(--err-text) 40%, var(--card)); }
+.btn.danger:hover:not(:disabled) { background: var(--warn); }
+.btn.danger-fill { background: var(--err-text); border-color: var(--err-text); color: var(--card); }
+.btn.danger-fill:hover:not(:disabled) { background: color-mix(in srgb, var(--err-text) 86%, var(--text)); }
+.btn.small { min-height: var(--h-control-sm); padding: 0 12px; font-size: 12px; }
+.btn.xl { min-height: 44px; padding: 0 22px; font-size: 15px; font-weight: 700; box-shadow: var(--elev-sm); }
+.btn.xl .ic { font-size: 22px; }
+.btn.on { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-text); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ボタンの並び。dangerのボタンは右へ寄せる */
+.btns { display: flex; gap: 8px; margin-top: 14px; align-items: center; flex-wrap: wrap; }
+.btns > label { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-weight: normal; }
+.btns .danger { margin-left: auto; }
+
+/* 欄を横に並べる行 */
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.row > div { flex: 1; min-width: 200px; }
+.row > div.narrow { flex: 0 0 130px; }
+@media (width < 601px) { .row > div.narrow { flex: 1 1 0; min-width: 0; } }
+
+/* 名前の横のチェック */
+label.chk { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-weight: normal; }
+
+/* 表を入れる枠（横にずらせる）と、表の行 */
+.wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--card); }
+tr.click { cursor: pointer; }
+tr.click:hover > td { background: var(--hover); }
+tr.done td { background: var(--past); color: var(--muted); }
+tr.checked td { background: var(--accent-soft); }
+td.sel, th.sel { width: 36px; text-align: center; }
+td.c, th.c { text-align: center; }
+td.nw { white-space: nowrap; }
+tr.r-past td { background: var(--warn); }
+
+/* ボタンや欄の文字を、まわりと同じにする（ボタンと欄はブラウザの既定の文字を持つため）。大きさ・太さは、Tailwindのクラスで上書きする */
+.font-inherit { font: inherit; }
+
+/* 窓の箱（<Modal> の中の .box）。PCは中央、スマホは下から出るシート。wideは卓の登録など広い窓、confirmは確かめる窓。
+ * 窓の中の名前・欄・ボタンの並びの決まりも、ここに置く（.modalは <Modal> が付ける） */
+.modal .box { background: var(--card); color: var(--text); border-radius: var(--radius-xl); padding: 20px 22px; width: 100%; max-width: 440px; max-height: 92dvh; overflow: auto; overscroll-behavior: contain; box-shadow: var(--elev-lg); animation: rise var(--dur) ease-out; }
+.modal .box:focus { outline: none; }
+.modal h3 { margin: 0 0 8px; font-size: 17px; }
+.modal label { display: block; font-weight: 600; font-size: 13px; margin: 12px 0 6px; }
+.modal input:not([type=checkbox]):not([type=radio]) { width: 100%; }
+.modal .members label { display: inline-flex; margin: 0; font-weight: normal; }
+.modal .btns > label, .modal label.chk { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-weight: normal; }
+.modal form .row > div { min-width: 120px; }
+/* 折り返した段のあいだは、名前の上の余白だけにする（段の隙間と重なって、ほかより広く空かないように） */
+.modal form .row { row-gap: 0; }
+/* 窓の下のボタンは右に寄せ、進むボタンをいちばん右に置く。消すなど危ないボタン（danger）は左の端 */
+.modal .btns { margin-top: 16px; justify-content: flex-end; }
+.modal .btns .danger { margin-left: 0; margin-right: auto; }
+.modal textarea { width: 100%; height: 80px; resize: vertical; }
+.modal .box.wide { max-width: 760px; padding-top: 0; padding-bottom: 0; }
+.box.confirm #confirmText { white-space: pre-line; margin: 0; color: var(--muted); }
+.box.confirm .btns { justify-content: flex-end; }
+.box.confirm .btns .danger-fill { margin-left: 0; }
+@media (width < 601px) {
+  .modal .box { max-width: none; border-radius: var(--radius-xl) var(--radius-xl) 0 0; max-height: calc(100dvh / var(--zoom, 1) - 24px); padding: 18px 16px max(16px, env(safe-area-inset-bottom)); animation-name: sheet-up; }
+  .modal .box.wide { max-width: none; padding-top: 0; padding-bottom: 0; }
+  .modal form .row > div.narrow { flex: 1 1 0; min-width: 0; }
+  /* スマホでは、窓の進むボタンを広げて押しやすくする */
+  .modal .btns .btn.primary, .modal .btns .btn.danger-fill { flex: 1 1 auto; min-height: 44px; font-size: 14px; }
+}

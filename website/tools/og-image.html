@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>YokiのSNS用の画像</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600;700;800&family=Geist+Mono:wght@500;600&family=Noto+Sans+JP:wght@500;700;900&display=block">
+<style>
+  /* サイトをSNSに貼ったときに出る画像（website/public/og.png）。Yokiの配色（デザイン案A: 青を大きく使う）を下敷きにする。1600×900で組み、npm run og-imageで書き出す */
+  :root {
+    --blue: #2d2afe;              /* アイコンの青。地に使う */
+    --blue-light: #769ffc;
+    --orange: #fe841c;
+    --pink: #fb2c85;
+    --yellow: #fdd21f;            /* 青の上の差し色 */
+    --ink: #15163a;               /* 白いタイルの文字 */
+    --muted: #5d608a;
+    --line: #e1e3fa;
+    --accent-text: #2421d6;       /* 白地の文字に使う青 */
+    --accent-soft: #eef0ff;
+    --orange-text: #c45200;       /* オレンジは白地の文字に使わず、濃くしたものにする */
+    --orange-soft: #fff0e3;
+    --green-text: #157347;
+    --green-soft: #e3f6ec;
+    --blurple: #5865f2;           /* Discordの色 */
+    --blurple-text: #3b44b8;
+    --blurple-soft: #eceeff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1600px; height: 900px; overflow: hidden; background: var(--blue); }
+  body {
+    color: #fff;
+    font-family: "Noto Sans JP", "Yu Gothic UI", sans-serif;
+    font-feature-settings: "palt";
+    -webkit-font-smoothing: antialiased;
+  }
+  .en { font-family: "Geist", "Noto Sans JP", sans-serif; font-feature-settings: normal; }
+  .mono { font-family: "Geist Mono", ui-monospace, monospace; font-feature-settings: normal; }
+  /* アイコン。og-image.jsが <span class="ms">名前</span> を、Material Symbols Roundedの塗りの形のSVGにする（大きさは文字の大きさ、色は文字の色） */
+  .ms { display: inline-block; width: 1em; height: 1em; flex: none; }
+  .ms svg { display: block; width: 100%; height: 100%; }
+
+  .canvas { position: relative; width: 1600px; height: 900px; overflow: hidden; isolation: isolate; }
+
+  /* ---- 背景：青の地に、点の格子と差し色の光 ---- */
+  .bg { position: absolute; inset: 0; z-index: -1; background: linear-gradient(160deg, #3532ff 0%, #2d2afe 45%, #2320d8 100%); }
+  .bg::before {
+    content: ""; position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, .16) 1.2px, transparent 1.6px);
+    background-size: 30px 30px;
+    -webkit-mask-image: radial-gradient(ellipse 60% 70% at 22% 30%, #000 10%, transparent 70%);
+            mask-image: radial-gradient(ellipse 60% 70% at 22% 30%, #000 10%, transparent 70%);
+  }
+  .glow { position: absolute; border-radius: 50%; filter: blur(100px); }
+  .g1 { width: 620px; height: 460px; left: 1120px; top: -220px; background: rgba(251, 44, 133, .38); }
+  .g2 { width: 620px; height: 420px; left: -220px; top: 640px; background: rgba(254, 132, 28, .2); }
+  .g3 { width: 520px; height: 420px; left: 1200px; top: 660px; background: rgba(118, 159, 252, .40); }
+
+  /* ---- 左：名前と見出し ---- */
+  .hero { position: absolute; left: 72px; top: 64px; width: 600px; height: 772px; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .mark {
+    display: block; width: 56px; height: 56px; border-radius: 15px;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, .92), 0 12px 30px rgba(8, 6, 90, .35);
+  }
+  .kind {
+    font-size: 25px; font-weight: 700; letter-spacing: .06em; color: #fff;
+    padding: 9px 20px 10px; border-radius: 999px;
+    background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .28);
+  }
+  .word {
+    margin-top: 34px; margin-left: -10px;
+    font-size: 272px; line-height: .86; font-weight: 700; letter-spacing: -.055em;
+    color: #fff;
+    display: flex; align-items: flex-end;
+    text-shadow: 0 18px 50px rgba(8, 6, 90, .25);
+  }
+  .word .i { position: relative; }
+  .word .dot {
+    /* 点は ı の縦棒と同じ幅・同じ位置（Geist 700で測った値） */
+    position: absolute; left: .0659em; top: .027em;
+    width: .1495em; height: .1495em;
+    border-radius: .036em;
+    background: var(--yellow);
+    box-shadow: 0 0 40px rgba(253, 210, 31, .55);
+  }
+  .lead {
+    margin-top: 52px;
+    font-size: 84px; line-height: 1.16; font-weight: 900; letter-spacing: .01em;
+  }
+  .lead .soft { color: var(--yellow); }
+
+  /* Discordでログイン・かんたん設定の札 */
+  .perks { position: absolute; left: 0; bottom: 0; display: flex; gap: 12px; }
+  .perk {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 20px 15px 14px; border-radius: 999px;
+    font-size: 30px; font-weight: 900; line-height: 1; white-space: nowrap;
+    background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .3);
+    box-shadow: 0 20px 50px rgba(8, 6, 90, .30);
+  }
+  .perk .ms { font-size: 32px; color: var(--yellow); }
+  .perk .en { font-weight: 800; letter-spacing: -.01em; }
+  .perk.hot {
+    background: #fff; color: var(--blue); border-color: transparent;
+    box-shadow: 0 20px 50px rgba(8, 6, 90, .35);
+  }
+  .perk.hot .ms { color: var(--blue); }
+
+  /* ---- 右：白いタイル ---- */
+  .bento {
+    position: absolute; left: 700px; top: 56px; width: 844px; height: 788px;
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 380px 1fr; gap: 22px;
+  }
+  .tile {
+    position: relative; overflow: hidden;
+    border-radius: 30px; padding: 30px 34px;
+    background: #fff; color: var(--ink);
+    box-shadow: 0 30px 70px rgba(8, 6, 90, .30);
+  }
+  .tag { font-size: 17px; font-weight: 600; letter-spacing: .16em; color: var(--accent-text); }
+  .ttl { font-weight: 900; letter-spacing: .01em; line-height: 1.18; }
+
+  /* 3ステップ */
+  .t2 { grid-column: 1 / 3; display: flex; gap: 30px; }
+  .t2 .lhs { flex: 0 0 318px; display: flex; flex-direction: column; }
+  .t2 .big { display: flex; align-items: flex-end; gap: 10px; margin-top: 30px; }
+  .t2 .num {
+    font-size: 196px; line-height: .78; font-weight: 800; letter-spacing: -.06em;
+    background: linear-gradient(180deg, #769ffc 0%, #2d2afe 70%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .t2 .ttl { font-size: 44px; padding-bottom: 2px; white-space: nowrap; }
+  .t2 .ttl2 { font-size: 58px; margin-top: 16px; }
+  .flow { flex: 1; position: relative; display: flex; flex-direction: column; justify-content: center; gap: 14px; }
+  .flow::before {
+    content: ""; position: absolute; left: 39px; top: 60px; bottom: 60px; width: 2px;
+    background: linear-gradient(180deg, rgba(45, 42, 254, .5), rgba(45, 42, 254, .15));
+  }
+  .st {
+    position: relative; display: flex; align-items: center; gap: 18px;
+    height: 88px; padding: 0 18px;
+    border-radius: 22px; background: #f6f7ff; border: 1px solid var(--line);
+  }
+  .st .n {
+    flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+    font-family: "Geist Mono", monospace; font-size: 21px; font-weight: 600;
+    background: var(--blue); color: #fff;
+  }
+  .st b { font-size: 34px; font-weight: 900; white-space: nowrap; }
+  .st .side { margin-left: auto; display: flex; align-items: center; }
+  .pill {
+    display: flex; align-items: center; gap: 6px; padding: 7px 14px 7px 10px; border-radius: 999px;
+    font-size: 18px; font-weight: 600; white-space: nowrap;
+    background: var(--blurple-soft); color: var(--blurple-text);
+  }
+  .pill .ms { font-size: 20px; }
+  .plus {
+    width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--blue); color: #fff; font-size: 28px;
+    box-shadow: 0 8px 20px rgba(45, 42, 254, .35);
+  }
+
+  .avs { display: flex; }
+  .av {
+    width: 34px; height: 34px; border-radius: 50%; margin-left: -9px;
+    display: grid; place-items: center; font-size: 15px; font-weight: 700;
+    border: 2px solid #fff; color: #fff;
+  }
+  .av:nth-child(1) { background: var(--orange); margin-left: 0; } .av:nth-child(2) { background: var(--pink); } .av:nth-child(3) { background: var(--blue-light); }
+  .av.more { background: var(--accent-soft); color: var(--accent-text); font-family: "Geist", sans-serif; font-weight: 600; }
+
+  /* 募集・日程調整 */
+  .t3 { display: flex; flex-direction: column; }
+  .t3 .ttl { font-size: 42px; margin-top: 14px; }
+  .t3 .ttl .one { color: var(--blue); }
+  .rows { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+  .row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 12px; border-radius: 16px;
+    background: #f6f7ff; border: 1px solid var(--line);
+  }
+  .row .ic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 24px; flex: none; }
+  .row .ic.v { background: var(--orange-soft); color: var(--orange-text); }
+  .row .ic.c { background: var(--accent-soft); color: var(--accent-text); }
+  .row b { font-size: 20px; font-weight: 700; white-space: nowrap; }
+  .row .avs { margin-left: auto; }
+  .row .av { width: 32px; height: 32px; font-size: 14px; margin-left: -8px; }
+  .row .av:nth-child(1) { margin-left: 0; }
+  .marks { display: flex; gap: 5px; margin-left: auto; align-items: center; }
+  .mk { width: 24px; height: 24px; border-radius: 50%; border: 2.5px solid var(--green-text); }
+  .fix {
+    display: flex; align-items: center; gap: 4px; margin-left: 6px;
+    padding: 5px 12px 5px 8px; border-radius: 999px; white-space: nowrap;
+    background: var(--green-soft); color: var(--green-text); font-size: 17px; font-weight: 700;
+  }
+  .fix .ms { font-size: 18px; }
+
+  /* Discord通知 */
+  .t4 { display: flex; flex-direction: column; }
+  .t4 .ttl { font-size: 42px; margin-top: 14px; }
+  .t4 .ttl .en { font-weight: 800; letter-spacing: -.01em; }
+  .msg {
+    margin-top: auto; display: flex; gap: 12px;
+    padding: 14px 16px 15px; border-radius: 18px;
+    background: #f6f7ff; border: 1px solid var(--line);
+    box-shadow: inset 4px 0 0 var(--blurple);
+  }
+  .msg .ava { flex: none; display: block; width: 42px; height: 42px; border-radius: 12px; }
+  .msg .who { display: flex; align-items: baseline; gap: 8px; }
+  .msg .who b { font-size: 19px; font-weight: 700; }
+  .msg .who span { font-size: 14px; color: var(--muted); }
+  .msg .body { margin-top: 3px; font-size: 18px; line-height: 1.45; color: #2a2c55; }
+  .msg .body .en { font-weight: 600; }
+  .ment { display: flex; gap: 5px; margin-top: 6px; }
+  .ment span {
+    padding: 1px 7px 2px; border-radius: 5px; font-size: 16px; font-weight: 600;
+    background: var(--blurple-soft); color: var(--blurple-text);
+  }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="bg"><div class="glow g1"></div><div class="glow g2"></div><div class="glow g3"></div></div>
+
+  <section class="hero">
+    <div class="brand">
+      <img class="mark" src="../public/icon-192.png" alt="">
+      <div class="kind">グループの予定管理ツール</div>
+    </div>
+    <h1 class="word en">Yok<span class="i">ı<span class="dot"></span></span></h1>
+    <p class="lead">集まる日が、<br><span class="soft">すぐ決まる。</span></p>
+
+    <div class="perks">
+      <div class="perk hot"><span class="ms" aria-hidden="true">login</span><span><span class="en">Discord</span>でログイン</span></div>
+      <div class="perk"><span class="ms" aria-hidden="true">bolt</span>かんたん設定</div>
+    </div>
+  </section>
+
+  <section class="bento">
+    <!-- 3ステップ -->
+    <div class="tile t2">
+      <div class="lhs">
+        <div class="tag mono">3 STEPS</div>
+        <div class="big"><div class="num en">3</div><div class="ttl">ステップで</div></div>
+        <div class="ttl ttl2">すぐ使える</div>
+      </div>
+      <div class="flow">
+        <div class="st"><span class="n">1</span><b>グループ作成</b>
+          <div class="side avs"><span class="av">ア</span><span class="av">ボ</span><span class="av">カ</span><span class="av more">+2</span></div></div>
+        <div class="st"><span class="n">2</span><b>通知設定</b>
+          <div class="side"><span class="pill"><span class="ms" aria-hidden="true">notifications</span><span class="en">Discord</span></span></div></div>
+        <div class="st"><span class="n">3</span><b>予定登録</b>
+          <div class="side"><span class="plus"><span class="ms" aria-hidden="true">add</span></span></div></div>
+      </div>
+    </div>
+
+    <!-- 募集・日程調整 -->
+    <div class="tile t3">
+      <div class="tag mono">ALL IN ONE</div>
+      <div class="ttl">募集も<br>日程調整も<br><span class="one">これ1つで。</span></div>
+      <div class="rows">
+        <div class="row">
+          <div class="ic v"><span class="ms" aria-hidden="true">campaign</span></div>
+          <b>募集</b>
+          <div class="avs"><span class="av">ア</span><span class="av">ボ</span><span class="av">カ</span></div>
+        </div>
+        <div class="row">
+          <div class="ic c"><span class="ms" aria-hidden="true">how_to_vote</span></div>
+          <b>日程調整</b>
+          <div class="marks"><span class="mk"></span><span class="mk"></span><span class="mk"></span>
+            <span class="fix"><span class="ms" aria-hidden="true">check</span>決定</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Discord通知 -->
+    <div class="tile t4">
+      <div class="tag mono">NOTIFY</div>
+      <div class="ttl"><span class="en">Discord</span>に<br>自動で通知</div>
+      <div class="msg">
+        <img class="ava" src="../public/icon-192.png" alt="">
+        <div>
+          <div class="who"><b class="en">Yoki</b><span>今日 <span class="en">20:00</span></span></div>
+          <div class="body">「星降る港の依頼」は<br>明日 <span class="en">21:00</span> からです</div>
+          <div class="ment"><span>@アリス</span><span>@ボブ</span><span>@カレン</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

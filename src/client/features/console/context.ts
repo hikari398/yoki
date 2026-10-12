@@ -1,0 +1,64 @@
+// グループの画面の中で共有するもの（グループのID・区域・データの読み書き・画面の状態）
+import { useQuery } from '@tanstack/react-query';
+import { createContext, useContext } from 'react';
+import type { ConsoleData } from '../../../shared/api';
+import type { Store } from '../../ui/store';
+import type { ConsoleSync } from './api/sync';
+
+/** 区域。/g/:id/ はふだんの画面、/g/:id/admin/ はグループの管理画面 */
+export type Area = 'main' | 'admin';
+/** タブ。ふだんの画面はカレンダー・募集・調整・シナリオ・メンバーの予定・記録・設定、管理画面は管理の1枚 */
+export type Tab = 'cal' | 'recruit' | 'scenario' | 'avail' | 'records' | 'settings' | 'admin';
+
+/**
+ * 卓の登録の窓・変更の窓を開く頼み。idがあれば、その卓の変更の窓。contはその卓の設定を引き継いで翌日の卓を登録する、
+ * date・status・seriesは新しく登録するときの初めの値（seriesを選ぶと直前の回から引き継ぐ。statusは変える卓にも当てる）。
+ * focusは、開いたときに入る欄（無ければ卓の名前）。scenarioId・gm・startは、シナリオのタブの「この日で卓を立てる」が入れる初めの値（startは時間帯の開始時刻）
+ */
+export type FormReq = { id?: string; cont?: string; date?: string; status?: string; series?: string; focus?: 'date'; scenarioId?: string; gm?: string; start?: string };
+
+/** 画面の状態（サーバーには送らない） */
+export type ConsoleUi = {
+  /** カレンダーで選んでいる日（YYYY-MM-DD）。選んでいなければ空 */
+  selDay: string;
+  /** カレンダーで見ている月（mは0から）。yが0なら今日の月 */
+  view: { y: number; m: number };
+  /** はじめの3ステップ。'' は要るもの（仲間・卓）がそろうまで出す、'open' は出し直した、'closed' は閉じた（この端末にグループごとに控え、次に開いたときも出さない） */
+  guide: '' | 'open' | 'closed';
+  /** はじめの3ステップを出し直した回数（出し直したら、そこへフォーカスを移す） */
+  guideFocus: number;
+  /** 募集・調整のタブで目立たせる卓のID（カレンダーの「回答する」などから移ったとき）。目立たせたら空に戻す */
+  focus: string;
+  /** 都合を見る卓（カレンダーの色と日の内訳）。「全員」「（なし）」か卓の名前。この端末に控える */
+  target: string;
+  /** 卓の登録の窓・変更の窓（開く頼みと、頼んだ回数。同じ頼みでも開き直す） */
+  form: { seq: number; req: FormReq } | null;
+  /** 候補日を選ぶ窓（日程調整を始める・選び直す卓） */
+  poll: { seq: number; id: string } | null;
+  /** 卓の準備の窓（HO・秘匿HO・キャラシ） */
+  prep: { seq: number; id: string } | null;
+  /** 卓の記録の窓（ログ・振り返り・自分のPC） */
+  record: { seq: number; id: string } | null;
+};
+
+export type ConsoleCtx = { groupId: string; area: Area; sync: ConsoleSync; ui: Store<ConsoleUi> };
+
+export const ConsoleContext = createContext<ConsoleCtx | null>(null);
+
+export function useConsole(): ConsoleCtx {
+  const c = useContext(ConsoleContext);
+  if (!c) throw new Error('グループの画面の外では使えません');
+  return c;
+}
+
+/** 画面のデータ。読み込む前はundefined */
+export function useMaybeData(): ConsoleData | undefined {
+  const { sync } = useConsole();
+  // 読み込みはsyncが決めるので、ここでは入れ物を見るだけ（自分では読まない）
+  return useQuery({ queryKey: sync.key, queryFn: () => sync.data() as ConsoleData, enabled: false }).data;
+}
+
+/** 画面のデータ。外枠（ConsoleLayout）は、データがあるときだけ中を描くので、中の部品ではいつもある */
+export function useData(): ConsoleData {
+  return useMaybeData()!;
+}
