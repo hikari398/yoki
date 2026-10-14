@@ -21,8 +21,9 @@
     {
       "binding": "DB",
       "database_name": "yoki",
+      "database_id": "43b015f8-9343-407d-bd00-1e72475e6ec3",
       // database_id: 元のリポジトリには書かない。設置するときに入る（上のとおり）。手元のD1は無くても動く
-      "migrations_dir": "./migrations","database_id": "43b015f8-9343-407d-bd00-1e72475e6ec3"
+      "migrations_dir": "./migrations"
     }
   ],
   "triggers": {
