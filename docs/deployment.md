@@ -34,6 +34,8 @@ Workerの値は、どれもsecretにする（varsにしない）。Workers Build
 
 写したリポジトリには、`.github/workflows/` が無い。リポジトリを作るCloudflareのGitHub App（Cloudflare Workers and Pages）は `workflows` の権限を持たず、GitHubはその権限の無いAppにワークフローのファイルを書かせないため。公開のワークフロー（`deploy.yml`）とサイトの公開（`pages.yml`）は要らない。更新のワークフロー（`update.yml`）だけは、運営者が1回だけ入れる（下の「新しいバージョンに上げる」）。
 
+Dependabotの設定（`.github/dependabot.yml`。依存とActionsの新しいバージョンをPRにする）は、写ったリポジトリでも動くことがある。届いたPRはマージしない（テストを通っていない依存で公開され、次の更新も、コードが変わったとみなしてPRで止まる）。依存は、更新のたびにテストを通ったバージョンに入れ替わる。止めるなら、運営者がこのファイルを消す。更新は `.github/` を入れ替えないので、消したままになる。設置する人向けの手順は、サイトの「新しいバージョンに上げる」の「DependabotのPRが届くとき」。
+
 ## GitHub Actionsで公開する
 
 元のリポジトリと、フォークして自分で公開するときのやり方。公開するCloudflareごとの値は、GitHubのenvironment「production」に置く。D1のIDとリポジトリの名前は組み立てた設定（`dist/<Workerの名前>/wrangler.json`）に入れ（`vite.config.ts`）、ほかはWorkerのsecretとして公開するバージョンと一緒に送る（`deploy.yml`）。
@@ -172,11 +174,11 @@ Googleでログインした人がグループに入れるかは、Discordのサ�
 
 ### 3. mainに書き込むトークン（フォーク。おすすめ）
 
-ボタンで作ったリポジトリでは要らない（更新は `.github/` を変えない）。フォークでは、元のリポジトリが `.github/workflows/` を変えたバージョンを、Actionsの既定のトークンではmainに書き込めない。GitHubのSettings → Developer settings → Fine-grained tokensで、このリポジトリだけに「Contents」と「Workflows」のRead and writeを付けたトークンを作り、リポジトリのSettings → Secrets and variables → ActionsのRepository secretsに `UPDATE_PUSH_TOKEN` として入れる（environmentではなく、リポジトリのsecret）。
+ボタンで作ったリポジトリでは要らない（更新は `.github/` を変えない）。フォークでは、元のリポジトリが `.github/workflows/` を変えたバージョンを、Actionsの既定のトークンではmainに書き込めない。GitHubのSettings → Developer settings → Fine-grained tokensで、このリポジトリだけに「Contents」と「Workflows」のRead and writeを付けたトークンを作り、リポジトリのSettings → Secrets and variables → ActionsのRepository secretsに `UPDATE_PUSH_TOKEN` として入れる（environmentではなく、リポジトリのsecret）。このトークンが使えなくなると（作り直した・消した・期限切れ）、更新のワークフローは初めのcheckoutで `could not read Username for 'https://github.com'` と出て止まる。公開のリポジトリでも、無効なトークンでは読めないため。ボタンで作ったリポジトリなら消し、フォークなら作り直して入れ直す。
 
 ### 4. 管理画面のボタンで更新する（任意）
 
-このリポジトリだけに「Actions」のRead and writeを付けたトークンを作り、Workerのsecretの `UPDATE_DISPATCH_TOKEN` に入れる（ボタンで設置したならCloudflareのWorkerのVariables and Secretsに種類「Secret」で、GitHub Actionsで公開しているならenvironment「production」の秘密に入れて公開し直す）。Workerはこのトークンで更新のワークフローを動かし、その記録を読む。コードは書き換えられない権限にとどめる。権限が足りずにGitHubが403を返したら、管理画面に、GitHubが返す要る権限（`X-Accepted-GitHub-Permissions`）をトークンの画面の言葉で出す（「Actions」の「Read and write」など）。無ければ、「更新」の区分にGitHubの画面を開くボタンが出る。
+このリポジトリだけに「Actions」のRead and writeを付けたトークンを作り（2のリポジトリの設定とは別。「Workflows」はワークフローのファイルを書き換える権限で、ワークフローを動かすのは「Actions」なので付けない）、Workerのsecretの `UPDATE_DISPATCH_TOKEN` に入れる（ボタンで設置したならCloudflareのWorkerのVariables and Secretsに種類「Secret」で、GitHub Actionsで公開しているならenvironment「production」の秘密に入れて公開し直す）。Workerはこのトークンで更新のワークフローを動かし、その記録を読む。コードは書き換えられない権限にとどめる。権限が足りずにGitHubが403を返したら、管理画面に、GitHubが返す要る権限（`X-Accepted-GitHub-Permissions`）をトークンの画面の言葉で出す（「Actions」の「Read and write」など）。無ければ、「更新」の区分にGitHubの画面を開くボタンが出る。
 
 ### 5. 元のリポジトリを変える（任意。フォークのフォークなど）
 

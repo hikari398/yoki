@@ -20,11 +20,13 @@ Yokiの新しいバージョンは、元のリポジトリ（[Xelltis/yoki](http
 
 入れたワークフローは、書き換えずに使い続けられます。更新のたびに、取り込むバージョンの手順を読んで動くからです。
 
-### 2. Actionsの権限を変える
+### 2. リポジトリのActionsの設定を変える
 
 あなたのリポジトリの「Settings」→「Actions」→「General」を開きます。「Workflow permissions」を「Read and write permissions」にし、「Allow GitHub Actions to create and approve pull requests」に印を入れて保存してください。更新のワークフローが、mainに書き込み、PRを作るために要ります。
 
 この2つを選べないときは、リポジトリを持つOrganizationの設定で止められています。Organizationの「Settings」→「Actions」→「General」で、同じ設定を許してください。
+
+ここで変えるのはリポジトリの設定で、4で作るトークンの権限とは別のものです。
 
 ### 3. mainに書き込むトークンを入れる（GitHub Actionsで公開しているとき）
 
@@ -40,7 +42,16 @@ GitHubの「Settings」（あなたのアカウントの設定）→「Developer
 
 このトークンを入れると、運営の管理画面の「更新」のボタンで更新を始められます。入れなければ、同じ場所に「GitHubで更新する」のボタンが出て、GitHubの画面から始める形です。
 
-GitHubの「Settings」→「Developer settings」→「Fine-grained tokens」でトークンを作ります。対象のリポジトリはあなたのリポジトリだけにし、権限は「Actions」の「Read and write」を付けてください。入れ先は、YokiのWorkerのsecretで、名前は `UPDATE_DISPATCH_TOKEN` です。
+2で変えたリポジトリの設定とは別に、GitHubのトークンを作ります。どちらにも「Actions」と「Read and write」が出てきますが、2はリポジトリの設定で、ここで決めるのはトークンの権限です。3のトークンとも別にしてください。
+
+1. GitHubの「Settings」（あなたのアカウントの設定）→「Developer settings」→「Fine-grained tokens」を開き、「Generate new token」を押す
+2. 「Repository access」を「Only select repositories」にして、あなたのリポジトリを選ぶ
+3. 「Permissions」で、「Actions」を「Read and write」にする
+4. 「Generate token」を押して、出たトークンを控える
+
+付けるのは「Actions」だけです（「Metadata」の「Read-only」は、自動で付きます）。「Workflows」は名前が似ていますが、ワークフローのファイルを書き換える権限で、ワークフローを動かすのは「Actions」の権限です。
+
+作ったトークンの入れ先は、YokiのWorkerのsecretです。名前は `UPDATE_DISPATCH_TOKEN` にします。
 
 | 設置のしかた | 入れ先 |
 |---|---|
@@ -87,6 +98,14 @@ GitHubは、トークンなしの読み出しの数を、出口のアドレス�
 
 PRを開き、差分を確かめてからマージしてください。マージすると公開されます。コードを直さずに使っていれば、PRにはなりません。
 
+## DependabotのPRが届くとき
+
+ボタンで設置したリポジトリに、Dependabotから `build(deps): bump …` のようなPRが届くことがあります。Dependabotは、使っている部品（依存）の新しいバージョンをPRにする、GitHubの仕組みです。元のリポジトリの設定ファイル（`.github/dependabot.yml`）が、設置のときに写ると動きます。
+
+届いたPRは、マージせずに閉じてください。マージすると、テストを通っていない部品のまま公開され、次の更新も、コードが変わったとみなしてPRで止まります。部品は、新しいバージョンに上げるたびに、テストを通ったものに入れ替わります。
+
+届かないようにするには、あなたのリポジトリで `.github/dependabot.yml` を開き、右上の「…」から「Delete file」を選んで消してください。更新は `.github/` を変えないので、消したままになります。
+
 ## 403と出るとき
 
 「GitHubが403を返しました」と出るのは、トークンの権限が足りないときです。出たところによって、確かめるトークンが変わります。
@@ -96,11 +115,21 @@ PRを開き、差分を確かめてからマージしてください。マージ
 | 運営の管理画面の「更新」 | Workerのsecretの `UPDATE_DISPATCH_TOKEN` | 「Actions」の「Read and write」（「Workflows」ではありません） |
 | Actionsの「Yokiを更新する」の記録 | Actionsのsecretの `UPDATE_PUSH_TOKEN` | 「Contents」と「Workflows」の「Read and write」 |
 
+運営の管理画面で出たときは、リポジトリの「Settings」→「Actions」→「General」（手順2）を変えても直りません。トークンの権限を確かめてください。
+
 GitHubのトークンの画面では、「Repository access」も見てください。「Only select repositories」にして、あなたのリポジトリを選びます。「Public repositories」のままでは、どのリポジトリにも書き込めません。リポジトリがOrganizationのものなら、「Resource owner」をそのOrganizationにします（Organizationが認めるまで使えないこともあります）。
 
 権限は、トークンを作ったあとでも変えられます。変えてもトークンの値は同じなので、入れ直す必要はありません。
 
 ボタンで設置したときは、`UPDATE_PUSH_TOKEN` は要りません。入れてあって403になるなら、消してかまいません（Actionsの既定のトークンで書き込みます）。
+
+## 「could not read Username」と出るとき
+
+Actionsの「Yokiを更新する」の記録に、`could not read Username for 'https://github.com': terminal prompts disabled` と出て、初めの `actions/checkout` で止まることがあります。Actionsのsecretの `UPDATE_PUSH_TOKEN` に入れたトークンが、使えなくなったときです。トークンを作り直した・消した・期限が切れたときに起こります。同じトークンを `UPDATE_DISPATCH_TOKEN` にも使っていて、そちらのために作り直したときも同じです。
+
+ボタンで設置したときは、`UPDATE_PUSH_TOKEN` を消してください。あなたのリポジトリの「Settings」→「Secrets and variables」→「Actions」の「Repository secrets」にあります。消すと、Actionsの既定のトークンで書き込みます。
+
+GitHub Actionsで公開しているときは、手順3と同じ権限でトークンを作り直し、`UPDATE_PUSH_TOKEN` に入れ直してください。
 
 ## 困ったときに戻す
 
